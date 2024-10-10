@@ -4,6 +4,8 @@ from User_list import CustomModel
 from ampalibe.messenger import Action
 from ampalibe.ui import Type, Button
 from Calcul_periode import Calcul_periode
+from Users import UserModel
+from Cycles import CyclesModel
 import re
 import calendar
 
@@ -27,6 +29,10 @@ def main(sender_id, cmd, **ext):
         )
     ]
     chat.send_button(sender_id, buttons, "Bonjour ! Je suis là pour t'aider à suivre ton cycle menstruel. Veux-tu commencer ?")
+    
+    # Enregistrer l'utilisateur
+    user_request = UserModel(sender_id)
+    user_request.ajout_user()
 
 @ampalibe.command('/saisie_date')
 def saisie_date(sender_id, cmd, **ext):
@@ -69,6 +75,7 @@ def get_dure(sender_id, cmd, **ext):
         # Vérification si la durée est bien un entier
         dure_cycle = int(cmd)
         query.set_temp(sender_id, 'dure_cycle', dure_cycle)
+
         # Passer ensuite à la confirmation après avoir envoyé ce message
         confirmation(sender_id)
     except ValueError:
@@ -91,13 +98,26 @@ def calcul(sender_id, date_debut, dure_cycle):
     if isinstance(resultats, dict) and 'error' in resultats:
         chat.send_text(sender_id, resultats['error'])
         return
-    
+    user_id = UserModel(sender_id)
+    id_user = user_id.trouver_id()
+    print(id_user)
+    start_date = query.get_temp(sender_id, 'date_debut')
+    duration = query.get_temp(sender_id, 'dure_cycle')
+    next_ovulation = resultats['date_ovulation']
+    next_periode = resultats['prochaine_date_regle']
+    fin_regle = resultats['fin_regle']
+    debut_fenetre = resultats['debut_fenetre_fertile']
+    fin_fenetre = resultats['fin_fenetre_fertile']
+
     # Envoyer les résultats à l'utilisateur
     chat.send_text(sender_id, f"Voici les résultats de ton cycle :\n"
                                 f"Date d'ovulation : {resultats['date_ovulation']}\n"
                                 f"Fenêtre fertile : {resultats['debut_fenetre_fertile']} à {resultats['fin_fenetre_fertile']}\n"
                                 f"Prochaine date des règles : {resultats['prochaine_date_regle']}\n"
                                 f"Fin des règles : {resultats['fin_regle']}")
+    
+    cycle_request = CyclesModel(id_user, start_date, duration, next_ovulation, next_periode, fin_regle, debut_fenetre, fin_fenetre)
+    cycle_request.ajout_cycle()
     
     query.del_temp(sender_id, 'date_debut')
     query.del_temp(sender_id, 'dure_cycle')
