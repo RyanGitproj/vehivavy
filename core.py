@@ -1,5 +1,5 @@
 import ampalibe
-from ampalibe import Messenger, Payload
+from ampalibe import Messenger, Payload, crontab
 from User_list import CustomModel
 from ampalibe.messenger import Action
 from ampalibe.ui import Type, Button
@@ -10,6 +10,7 @@ import re
 import calendar
 from datetime import datetime, timedelta
 from NotificationsModel import NotificationsModel
+
 
 chat = Messenger()
 query = CustomModel()
@@ -152,3 +153,61 @@ def creation_notification(sender_id, date_debut, dure_cycle):
     # Nettoyer les variables temporaires
     query.del_temp(sender_id, 'date_debut')
     query.del_temp(sender_id, 'dure_cycle')
+
+@ampalibe.crontab('* * * * *')
+async def envoie_notifications():
+    try:
+        # Récupérer les notifications non envoyées pour aujourd'hui
+        notifications = query.verifier_notification_a_envoyer()
+
+        print("Notifications à envoyer:", notifications)  # Vérification du contenu
+
+        # Vérifier si notifications est une liste
+        if isinstance(notifications, list):
+            # Parcourir chaque notification
+            for notification in notifications:
+                # Vérification si la notification est un tuple
+                if isinstance(notification, tuple) and len(notification) == 3:
+                    notification_id = notification[0]  # Accéder par indice
+                    cycle_id = notification[1]          # Accéder par indice
+                    zone_type = notification[2]         # Accéder par indice
+
+                    # Récupérer le messenger_id associé au cycle_id
+                    messenger_id = query.get_messenger_id(cycle_id)
+
+                    if messenger_id:
+                        # Envoyer un message basé sur le zone_type (adapter selon ton besoin)
+                        chat.send_text(messenger_id, f"Rappel de cycle : vous êtes dans la zone {zone_type}.")
+
+                        # Marquer la notification comme envoyée
+                        query.marquer_comme_envoyee(notification_id)
+                        print(f"Notification envoyée avec succès à {messenger_id} (zone: {zone_type}).")
+                    else:
+                        print(f"Aucun utilisateur trouvé pour le cycle_id {cycle_id}")
+                else:
+                    print(f"La notification n'est pas un tuple valide : {notification}")
+        else:
+            print(f"Les notifications ne sont pas sous forme de liste : {notifications}")
+
+    except Exception as e:
+        print(f"Erreur lors de l'envoi des notifications : {str(e)}")
+
+
+
+# # Planification pour exécuter la fonction toutes les minutes
+# crontab('* * * * *', func=envoie_notifications, loop=ampalibe.core.loop)
+    
+# def send_notifications_all_users():
+#     try:
+#         # Récupérer la liste des utilisateurs
+#         all_users = query.get_list_user()
+
+#         # Parcourir chaque utilisateur et envoyer une notification simple
+#         for user in all_users:
+#             sender_id = user  # Chaque 'user' contient uniquement le messenger_id
+#             chat.send_text(sender_id, "Ceci est un rappel pour votre cycle menstruel.")
+
+#     except Exception as e:
+#         print(f"Erreur lors de l'envoi des notifications : {str(e)}")
+
+

@@ -65,4 +65,4 @@ class UserModel(Model):
         except mysql.connector.Error as err:
             print(f"Erreur lors de la récupération du cycle_id : {err}")
             return None
-
+        
