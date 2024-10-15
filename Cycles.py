@@ -35,3 +35,5 @@ class CyclesModel(Model):
             # Gestion d'erreurs de la base de données
             print(f"Erreur lors de l'ajout du cycle : {err}")
             self.db.rollback()  # Annuler la transaction en cas d'erreur
+
+

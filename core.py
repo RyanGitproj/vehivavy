@@ -8,6 +8,8 @@ from Users import UserModel
 from Cycles import CyclesModel
 import re
 import calendar
+from datetime import datetime, timedelta
+from NotificationsModel import NotificationsModel
 
 chat = Messenger()
 query = CustomModel()
@@ -40,7 +42,7 @@ def saisie_date(sender_id, cmd, **ext):
 
     # Demander la date de début des règles
     chat.send_text(sender_id, "Peux-tu me donner la date de début de tes dernières règles ? (Format: JJ/MM/AAAA)")
-    query.set_action(sender_id,"/get_date")
+    query.set_action(sender_id, "/get_date")
 
 @ampalibe.action('/get_date')
 def get_date(sender_id, cmd, **ext):
@@ -91,6 +93,7 @@ def confirmation(sender_id, **ext):
     calcul(sender_id, debut_date, cycle_dure)
 
 def calcul(sender_id, date_debut, dure_cycle):
+    query.set_action(sender_id, None)
     calculs = Calcul_periode(date_debut, dure_cycle)
     resultats = calculs.calculer_periode()
     
@@ -100,7 +103,7 @@ def calcul(sender_id, date_debut, dure_cycle):
         return
     user_id = UserModel(sender_id)
     id_user = user_id.trouver_id()
-    print(id_user)
+    print(f'id_user : {id_user}')
     start_date = query.get_temp(sender_id, 'date_debut')
     duration = query.get_temp(sender_id, 'dure_cycle')
     next_ovulation = resultats['date_ovulation']
@@ -118,6 +121,34 @@ def calcul(sender_id, date_debut, dure_cycle):
     
     cycle_request = CyclesModel(id_user, start_date, duration, next_ovulation, next_periode, fin_regle, debut_fenetre, fin_fenetre)
     cycle_request.ajout_cycle()
-    
+    creation_notification(sender_id, start_date, dure_cycle)
+
+def creation_notification(sender_id, date_debut, dure_cycle):
+    try:
+        # Créer une instance de CyclesModel pour récupérer le cycle_id
+        cycle_req = UserModel(sender_id)
+        
+        # Trouver le cycle_id correspondant au sender_id
+        cycle_id = cycle_req.trouver_cycle_id()
+        if not cycle_id:
+            raise ValueError("Aucun cycle trouvé pour cet utilisateur.")
+
+        print(f'cycle_id : {cycle_id}')
+        # Calculer la date de la prochaine période
+        start_date = datetime.strptime(date_debut, "%d/%m/%Y")
+        next_period = start_date + timedelta(days=dure_cycle)
+
+        # Utiliser NotificationsModel pour générer les notifications
+        notification_model = NotificationsModel()
+        notification_model.generer_notification(cycle_id, start_date.strftime('%Y-%m-%d'), next_period.strftime('%Y-%m-%d'))
+        
+        print(f"Notifications créées avec succès pour l'utilisateur {sender_id}.")
+        
+    except ValueError as e:
+        print(f"Erreur lors de la création de notification pour {sender_id} : {str(e)}")
+    except Exception as e:
+        print(f"Erreur inattendue lors de la création de notification pour {sender_id} : {str(e)}")
+
+    # Nettoyer les variables temporaires
     query.del_temp(sender_id, 'date_debut')
     query.del_temp(sender_id, 'dure_cycle')
