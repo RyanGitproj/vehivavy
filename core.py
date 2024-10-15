@@ -15,6 +15,10 @@ from NotificationsModel import NotificationsModel
 chat = Messenger()
 query = CustomModel()
 
+
+# Démarrer
+chat.get_started()
+
 @ampalibe.command('/')
 def main(sender_id, cmd, **ext):
     chat.send_action(sender_id, Action.mark_seen)
@@ -36,6 +40,18 @@ def main(sender_id, cmd, **ext):
     # Enregistrer l'utilisateur
     user_request = UserModel(sender_id)
     user_request.ajout_user()
+
+@ampalibe.command('/reset')
+def reset(sender_id, cmd, **ext):
+
+        # Envoyer un message de confirmation à l'utilisateur
+        print(sender_id, "La conversation a été réinitialisée. Vous pouvez recommencer.")
+        
+        # Rediriger vers le menu principal
+        main(sender_id, cmd, **ext)
+        print(cmd)
+        print("-------")
+        print(ext)
 
 @ampalibe.command('/saisie_date')
 def saisie_date(sender_id, cmd, **ext):
@@ -153,6 +169,66 @@ def creation_notification(sender_id, date_debut, dure_cycle):
     # Nettoyer les variables temporaires
     query.del_temp(sender_id, 'date_debut')
     query.del_temp(sender_id, 'dure_cycle')
+
+# 
+@ampalibe.crontab('0 0 * * *')  # À 00h00 chaque jour
+async def check_menstruation():
+        try:
+            today = datetime.today().date()
+            cycles = CyclesModel().get_all_cycles()  # Supposons que cette méthode récupère tous les cycles
+
+            for cycle in cycles:
+                if cycle['next_period'] == today:
+                    # Envoyer une demande de confirmation avec boutons Oui et Non
+                    buttons = [
+                        Button(
+                            type=Type.postback,
+                            title='Oui',
+                            payload=Payload('/confirm_start_date', {"cycle_id": cycle['id']})
+                        ),
+                        Button(
+                            type=Type.postback,
+                            title='Non',
+                            payload=Payload('/decline_start_date', {"cycle_id": cycle['id']})
+                        )
+                    ]
+                    chat.send_button(cycle['user_id'], buttons, "Est-ce que vos règles ont commencé aujourd'hui ?")
+        except Exception as e:
+            print(f"Erreur lors de la vérification des menstruations : {str(e)}")
+
+@ampalibe.command('/confirm_start_date')
+def confirm_start_date(sender_id, payload, **ext):
+    # Récupérer l'ID de l'utilisateur à partir de sender_id
+    user_id = UserModel().get_user_id_by_messenger_id(sender_id)
+    if not user_id:
+        chat.send_text(sender_id, "Utilisateur non trouvé.")
+        return
+    
+    cycle_id = payload.get('cycle_id')
+    cycle = CyclesModel(user_id)
+    last_cycle = cycle.get_last_cycle()
+    
+    if last_cycle:
+        new_start_date = datetime.today()
+        duration = last_cycle['duration']
+        calculs = Calcul_periode(new_start_date.strftime('%d/%m/%Y'), duration)
+        resultats = calculs.calculer_periode()
+        
+        if 'error' not in resultats:
+            cycle.update_cycle_dates(new_start_date.strftime('%d/%m/%Y'), duration,
+                                     resultats['date_ovulation'], resultats['prochaine_date_regle'],
+                                     resultats['fin_regle'], resultats['debut_fenetre_fertile'],
+                                     resultats['fin_fenetre_fertile'])
+            
+            chat.send_text(sender_id, f"Merci pour la confirmation. La prochaine date prévue est maintenant {resultats['prochaine_date_regle']}.")
+        else:
+            chat.send_text(sender_id, "Il y a eu un problème avec les calculs de cycle.")
+    else:
+        chat.send_text(sender_id, "Aucun cycle trouvé pour cet utilisateur.")
+
+@ampalibe.command('/decline_start_date')
+def decline_start_date(sender_id, payload, **ext):
+    chat.send_text(sender_id, "Merci d'avoir confirmé. Vous pouvez indiquer la nouvelle date de début quand elle arrivera.")
 
 @ampalibe.crontab('* * * * *')
 async def envoie_notifications():
