@@ -30,7 +30,7 @@ def main(sender_id, cmd, **ext):
             payload=Payload('/saisie_date')
         ),
         Button(
-            type=Type.postback,
+            type=Type.postback, 
             title='Non',
             payload=Payload('/sortie')
         )
@@ -108,6 +108,126 @@ def confirmation(sender_id, **ext):
     cycle_dure = query.get_temp(sender_id, 'dure_cycle')
     chat.send_text(sender_id, f'Merci ! Tes dernières règles ont commencé le {debut_date} et ont duré {cycle_dure} jours. Je vais t\'envoyer des rappels pour les phases importantes de ton cycle, ainsi que des notifications quotidiennes sur ta zone.')
     calcul(sender_id, debut_date, cycle_dure)
+    # Ajouter des boutons pour demander si l'utilisateur veut mettre à jour
+    buttons = [
+        Button(
+            type=Type.postback,
+            title='Mettre à jour',
+            payload=Payload('/update_cycle')
+        ),
+        Button(
+            type=Type.postback,
+            title='Pas maintenant',
+            payload=Payload('/no_update')
+        )
+    ]
+    chat.send_button(sender_id, buttons, "Souhaites-tu mettre à jour les dates de ton cycle ?")
+
+# UPDATE
+@ampalibe.command('/update_cycle')
+def update_cycle(sender_id, cmd, **ext):
+    chat.send_action(sender_id, Action.mark_seen)
+    # Envoyer des boutons pour Oui et Non
+    buttons = [
+        Button(
+            type=Type.postback,
+            title='Oui',
+            payload=Payload('/start_update')
+        ),
+        Button(
+            type=Type.postback,
+            title='Non',
+            payload=Payload('/no_update')
+        )
+    ]
+    chat.send_button(sender_id, buttons, "Est-ce que les dernières règles sont bien arrivé ? Cela permettra de mettre à jour les informations. ?")
+
+@ampalibe.command('/start_update')
+def start_update(sender_id, cmd, **ext):
+    chat.send_action(sender_id, Action.typing_on)
+    chat.send_text(sender_id, "Peux-tu me donner la nouvelle date de début de tes dernières règles ? (Format: JJ/MM/AAAA)")
+    query.set_action(sender_id, "/get_new_date")
+
+@ampalibe.action('/get_new_date')
+def get_new_date(sender_id, cmd, **ext):
+    try:
+        query.set_action(sender_id, None)
+        if re.match(r'^\d{2}/\d{2}/\d{4}$', cmd):
+            day, month, year = map(int, cmd.split('/'))
+            if month < 1 or month > 12 or day < 1 or day > calendar.monthrange(year, month)[1]:
+                raise ValueError("La date est invalide.")
+            query.set_temp(sender_id, 'new_date_debut', cmd)
+            chat.send_text(sender_id, "Quel est la durée de votre nouveau cycle en jours ?")
+            query.set_action(sender_id, "/get_new_duration")
+        else:
+            raise ValueError("Le format de la date est incorrect.")
+    except ValueError as e:
+        chat.send_text(sender_id, str(e) + " Merci de réessayer au format JJ/MM/AAAA.")
+        query.set_action(sender_id, "/get_new_date")
+    
+@ampalibe.action('/get_new_duration')
+def get_new_duration(sender_id, cmd, **ext):
+    try:
+        query.set_action(sender_id, None)
+        dure_cycle = int(cmd)
+        query.set_temp(sender_id, 'new_dure_cycle', dure_cycle)
+        confirmer_mise_a_jour(sender_id)
+    except ValueError:
+        chat.send_text(sender_id, "La durée doit être un nombre entier. Peux-tu réessayer ?")
+        query.set_action(sender_id, "/get_new_duration")
+
+def confirmer_mise_a_jour(sender_id):
+    new_start_date = query.get_temp(sender_id, 'new_date_debut')
+    new_duration = query.get_temp(sender_id, 'new_dure_cycle')
+    chat.send_text(sender_id, f"Merci ! Tes informations ont été mises à jour avec la nouvelle date de début: {new_start_date} et une durée de {new_duration} jours. Je vais t'envoyer des rappels pour les phases importantes de ton cycle, ainsi que des notifications quotidiennes sur ta zone.")
+    
+    # Calculer les nouvelles dates et les mettre à jour
+    user_id = UserModel(sender_id).trouver_id()
+    calculs = Calcul_periode(new_start_date, new_duration).calculer_periode()
+    
+    # Récupérer les nouvelles dates calculées
+    next_ovulation = calculs['date_ovulation']
+    next_periode = calculs['prochaine_date_regle']
+    fin_regle = calculs['fin_regle']
+    debut_fenetre = calculs['debut_fenetre_fertile']
+    fin_fenetre = calculs['fin_fenetre_fertile']
+    
+    # Mise à jour dans la base de données
+    cycle_request = CyclesModel(user_id, new_start_date, new_duration, next_ovulation, next_periode, fin_regle, debut_fenetre, fin_fenetre)
+    cycle_request.update_cycle()
+    # calcul(sender_id, new_start_date, new_duration)
+    # Ajouter des boutons pour demander si l'utilisateur veut mettre à jour
+    buttons = [
+        Button(
+            type=Type.postback,
+            title='Mettre à jour',
+            payload=Payload('/update_cycle')
+        ),
+        Button(
+            type=Type.postback,
+            title='Pas maintenant',
+            payload=Payload('/no_update')
+        )
+    ]
+    chat.send_button(sender_id, buttons, "Souhaites-tu mettre à jour les dates de ton cycle ?")
+
+@ampalibe.command('/no_update')
+def no_update(sender_id, cmd, **ext):
+    chat.send_text(sender_id, "D'accord ! N'hésite pas à m'envoyer un message quand ton prochain cycle commence.")
+# Ajouter des boutons pour demander si l'utilisateur veut mettre à jour
+    buttons = [
+        Button(
+            type=Type.postback,
+            title='Mettre à jour',
+            payload=Payload('/update_cycle')
+        ),
+        Button(
+            type=Type.postback,
+            title='Pas maintenant',
+            payload=Payload('/no_update')
+        )
+    ]
+    chat.send_button(sender_id, buttons, "Souhaites-tu mettre à jour les dates de ton cycle ?")
 
 def calcul(sender_id, date_debut, dure_cycle):
     query.set_action(sender_id, None)
@@ -170,65 +290,6 @@ def creation_notification(sender_id, date_debut, dure_cycle):
     query.del_temp(sender_id, 'date_debut')
     query.del_temp(sender_id, 'dure_cycle')
 
-# 
-@ampalibe.crontab('0 0 * * *')  # À 00h00 chaque jour
-async def check_menstruation():
-        try:
-            today = datetime.today().date()
-            cycles = CyclesModel().get_all_cycles()  # Supposons que cette méthode récupère tous les cycles
-
-            for cycle in cycles:
-                if cycle['next_period'] == today:
-                    # Envoyer une demande de confirmation avec boutons Oui et Non
-                    buttons = [
-                        Button(
-                            type=Type.postback,
-                            title='Oui',
-                            payload=Payload('/confirm_start_date', {"cycle_id": cycle['id']})
-                        ),
-                        Button(
-                            type=Type.postback,
-                            title='Non',
-                            payload=Payload('/decline_start_date', {"cycle_id": cycle['id']})
-                        )
-                    ]
-                    chat.send_button(cycle['user_id'], buttons, "Est-ce que vos règles ont commencé aujourd'hui ?")
-        except Exception as e:
-            print(f"Erreur lors de la vérification des menstruations : {str(e)}")
-
-@ampalibe.command('/confirm_start_date')
-def confirm_start_date(sender_id, payload, **ext):
-    # Récupérer l'ID de l'utilisateur à partir de sender_id
-    user_id = UserModel().get_user_id_by_messenger_id(sender_id)
-    if not user_id:
-        chat.send_text(sender_id, "Utilisateur non trouvé.")
-        return
-    
-    cycle_id = payload.get('cycle_id')
-    cycle = CyclesModel(user_id)
-    last_cycle = cycle.get_last_cycle()
-    
-    if last_cycle:
-        new_start_date = datetime.today()
-        duration = last_cycle['duration']
-        calculs = Calcul_periode(new_start_date.strftime('%d/%m/%Y'), duration)
-        resultats = calculs.calculer_periode()
-        
-        if 'error' not in resultats:
-            cycle.update_cycle_dates(new_start_date.strftime('%d/%m/%Y'), duration,
-                                     resultats['date_ovulation'], resultats['prochaine_date_regle'],
-                                     resultats['fin_regle'], resultats['debut_fenetre_fertile'],
-                                     resultats['fin_fenetre_fertile'])
-            
-            chat.send_text(sender_id, f"Merci pour la confirmation. La prochaine date prévue est maintenant {resultats['prochaine_date_regle']}.")
-        else:
-            chat.send_text(sender_id, "Il y a eu un problème avec les calculs de cycle.")
-    else:
-        chat.send_text(sender_id, "Aucun cycle trouvé pour cet utilisateur.")
-
-@ampalibe.command('/decline_start_date')
-def decline_start_date(sender_id, payload, **ext):
-    chat.send_text(sender_id, "Merci d'avoir confirmé. Vous pouvez indiquer la nouvelle date de début quand elle arrivera.")
 
 @ampalibe.crontab('* * * * *')
 async def envoie_notifications():
