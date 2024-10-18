@@ -313,8 +313,24 @@ async def envoie_notifications():
                     messenger_id = query.get_messenger_id(cycle_id)
 
                     if messenger_id:
-                        # Envoyer un message basé sur le zone_type (adapter selon ton besoin)
-                        chat.send_text(messenger_id, f"Rappel de cycle : vous êtes dans la zone {zone_type}.")
+                        # Récupérer les dates d'ovulation et de fin des règles
+                        ovulation, fin_regles = query.get_rappel(cycle_id)
+
+                        # Envoyer un message basé sur le zone_type
+                        if zone_type == 'orange':
+                            chat.send_text(messenger_id, "🟧 Rappel de cycle : vous êtes dans une fenêtre fertile.")
+                        elif zone_type == 'verte':
+                            chat.send_text(messenger_id, "🟩 Rappel de cycle : vous êtes dans une fenêtre non fertile.")
+                        elif zone_type == 'rouge':
+                            chat.send_text(messenger_id, "🟥 Rappel de cycle : vous êtes en période de règles ou fertilité élevée.")
+                        else:
+                            chat.send_text(messenger_id, "Rappel de cycle : informations de zone inconnues.")
+
+                        # Ajouter les informations sur l'ovulation et la fin des règles
+                        if ovulation and fin_regles:
+                            chat.send_text(messenger_id, f"Ton ovulation est prévue le {ovulation}. Tes prochaines règles devraient arriver autour du {fin_regles}.")
+                        else:
+                            chat.send_text(messenger_id, "Les informations sur l'ovulation et les règles ne sont pas disponibles.")
 
                         # Marquer la notification comme envoyée
                         query.marquer_comme_envoyee(notification_id)
@@ -328,6 +344,8 @@ async def envoie_notifications():
 
     except Exception as e:
         print(f"Erreur lors de l'envoi des notifications : {str(e)}")
+
+
 
 
 

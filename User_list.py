@@ -65,6 +65,29 @@ class CustomModel(Model):
         except Exception as e:
             print(f"Error: {e}")
             return None
+        
+    @Model.verif_db
+    def get_rappel(self, cycle_id):
+        try:
+            # Requête pour obtenir les dates d'ovulation et de fin des règles
+            req = """
+            SELECT next_ovulation, fin_regles
+            FROM cycles
+            WHERE id = %s
+            """
+            self.cursor.execute(req, (cycle_id,))
+            result = self.cursor.fetchone()  # Récupérer un seul résultat
+            if result:
+                # Retourner les dates sous forme de tuple
+                next_ovulation, fin_regles = result
+                return next_ovulation, fin_regles
+            else:
+                print(f"Aucune donnée trouvée pour le cycle_id {cycle_id}")
+                return None, None
+        except Exception as e:
+            print(f"Erreur lors de la récupération des données : {str(e)}")
+            return None, None
+
 
 
     # @Model.verif_db
