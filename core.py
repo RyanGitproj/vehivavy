@@ -107,7 +107,7 @@ def confirmation(sender_id, **ext):
     debut_date = query.get_temp(sender_id, 'date_debut')
     cycle_dure = query.get_temp(sender_id, 'dure_cycle')
     chat.send_text(sender_id, f'Merci ! Tes dernières règles ont commencé le {debut_date} et ont duré {cycle_dure} jours. Je vais t\'envoyer des rappels pour les phases importantes de ton cycle, ainsi que des notifications quotidiennes sur ta zone.')
-    chat.send_text(sender_id, f"🟩 Zone Verte 🟢 : Période peu fertile. C'est une phase où il y a moins de chances de concevoir.\n🟧 Zone Orange 🟠 : Période ovulatoire. Cette phase correspond à la fenêtre de fertilité possible où l'ovulation approche.\n🟥 Zone Rouge 🔴 : Menstruations ou période fertile élevée. Cette phase est marquée par soit les règles, soit une haute probabilité de fertilité.")
+    chat.send_text(sender_id, f"🟩 Zone Verte 🟢 : Période peu fertile. C'est une phase où il y a moins de chances de concevoir.\n🟧 Zone Orange 🟠 : Période ovulatoire. Cette phase correspond à la fenêtre de fertilité possible où l'ovulation approche.\n🟥 Zone Rouge 🔴 : Soit Menstruations || soit période fertile élevée. Cette phase est marquée par soit les règles || soit une haute probabilité de fertilité.")
     calcul(sender_id, debut_date, cycle_dure)
     # Ajouter des boutons pour demander si l'utilisateur veut mettre à jour
     buttons = [
@@ -252,7 +252,7 @@ def calcul(sender_id, date_debut, dure_cycle):
 
     # Envoyer les résultats à l'utilisateur
     chat.send_text(sender_id, f"Voici les résultats de ton cycle :\n"
-                                f"Date d'ovulation : {resultats['date_ovulation']}\n"
+                                f"Date probable d'ovulation : {resultats['date_ovulation']}\n"
                                 f"Fenêtre fertile : {resultats['debut_fenetre_fertile']} à {resultats['fin_fenetre_fertile']}\n"
                                 f"Prochaine date des règles : {resultats['prochaine_date_regle']}\n"
                                 f"Fin des règles : {resultats['fin_regle']}")
@@ -326,13 +326,13 @@ async def envoie_notifications():
                         elif zone_type == 'verte':
                             chat.send_text(messenger_id, "🟩 Rappel de cycle : \nAujourd'hui, tu es en zone 🟢. C'est une phase peu fertile. Profite de ta journée en toute tranquillité !")
                         elif zone_type == 'rouge':
-                            chat.send_text(messenger_id, "🟥 Rappel de cycle : \nAujourd'hui, tu es en zone 🔴. Cela signifie que tu es soit en menstruation, soit dans une phase fertile élevée. Prends soin de toi.")
+                            chat.send_text(messenger_id, "🟥 Rappel de cycle : \nAujourd'hui, tu es en zone 🔴. Cela signifie que tu es soit en menstruation || soit dans une phase fertile élevée. Prends soin de toi.")
                         else:
                             chat.send_text(messenger_id, "Rappel de cycle : informations de zone inconnues.")
 
                         # Ajouter les informations sur l'ovulation et la fin des règles
                         if ovulation and fin_regles:
-                            chat.send_text(messenger_id, f"Ton ovulation est prévue le {ovulation}. Tes prochaines règles devraient arriver autour du {fin_regles}.")
+                            chat.send_text(messenger_id, f"⚠️ Ton ovulation est prévue le {ovulation}. Tes prochaines règles devraient arriver autour du {fin_regles}.")
                         else:
                             chat.send_text(messenger_id, "Les informations sur l'ovulation et les règles ne sont pas disponibles.")
 
