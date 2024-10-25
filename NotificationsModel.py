@@ -99,7 +99,9 @@ class NotificationsModel(Model):
 
         if debut_fenetre_fertile <= date <= fin_fenetre_fertile:
             return 'orange'  # Fenêtre fertile
-        elif date == date_ovulation or (start_date <= date <= fin_regle):
-            return 'rouge'  # Ovulation ou période de règles
+        elif date == date_ovulation:
+            return 'rouge'  # Ovulation
+        elif start_date <= date <= fin_regle :
+            return 'bleue' # période de règles
         else:
             return 'verte'  # Autre période
