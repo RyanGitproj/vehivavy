@@ -2,6 +2,8 @@ from ampalibe import Model
 from datetime import datetime, timedelta
 import mysql
 
+from Notification import NotificationModel
+
 class NotificationsModel(Model):
     def __init__(self, cycle_id=None, notification_date=None, zone_type=None, sent=False):
         super().__init__()
@@ -105,3 +107,40 @@ class NotificationsModel(Model):
             return 'bleue' # période de règles
         else:
             return 'verte'  # Autre période
+    @Model.verif_db
+    def supprimer_notifications_cycle(self, cycle_id):
+        """Supprimer toutes les notifications d'un cycle spécifique."""
+        try:
+            req = "DELETE FROM notifications WHERE cycle_id = %s"
+            self.cursor.execute(req, (cycle_id,))
+            self.db.commit()
+        except mysql.connector.Error as err:
+            print(f"Erreur lors de la suppression des notifications : {err}")
+            self.db.rollback()
+    def generer_notifications(self, cycle_id, date_debut):
+        """Générer des notifications après la mise à jour d'un cycle"""
+        # Supprimer les anciennes notifications pour le cycle mis à jour
+        self.supprimer_notifications_cycle(cycle_id)
+
+        try:
+            # Récupérer les nouvelles dates de fertilité du cycle mis à jour
+            req = """SELECT date_ovulation, debut_fenetre_fertile, fin_fenetre_fertile, prochaine_date_regle, fin_regle
+                    FROM cycles WHERE id = %s"""
+            self.cursor.execute(req, (cycle_id,))
+            cycle_data = self.cursor.fetchone()
+
+            if not cycle_data:
+                raise ValueError("Aucune donnée de cycle trouvée pour cet ID.")
+
+            # Décomposer les dates de fertilité
+            date_ovulation, debut_fenetre_fertile, fin_fenetre_fertile, prochaine_date_regle, fin_regle = cycle_data
+
+            # Créer les nouvelles notifications pour chaque date du cycle
+            for date in [debut_fenetre_fertile, date_ovulation, fin_fenetre_fertile, prochaine_date_regle, fin_regle]:
+                zone_type = self.determine_zone(date, date_ovulation)
+                notification = NotificationModel(cycle_id, date.strftime('%d/%m/%Y'), zone_type)
+                notification.ajouter_notification()
+
+        except mysql.connector.Error as err:
+            print(f"Erreur lors de la récupération des données de cycle : {err}")
+

@@ -1,10 +1,21 @@
+# services:
+#   web:
+#     build: .
+#     command: sh -c "ampalibe run --dev"
+#     ports:
+#       - 4555:4555
+#     volumes:
+#       - .:/app  # Monte le répertoire courant dans /app du conteneur
+#     env_file:
+#       - .env
+version: "3.8"
+
 services:
   web:
     build: .
-    command: sh -c "ampalibe run --dev"
+    command: sh -c "uvicorn core --reload --port=8000 --host=0.0.0.0"
     ports:
-      - 4555:4555
+      - 8000:8000
     volumes:
       - .:/app  # Monte le répertoire courant dans /app du conteneur
-    env_file:
-      - .env
+  

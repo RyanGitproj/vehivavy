@@ -22,24 +22,36 @@ chat.get_started()
 @ampalibe.command('/')
 def main(sender_id, cmd, **ext):
     chat.send_action(sender_id, Action.mark_seen)
-    # Envoyer le message d'accueil avec deux options (Oui et Non)
-    buttons = [
-        Button(
-            type=Type.postback,
-            title='Oui',
-            payload=Payload('/saisie_date')
-        ),
-        Button(
-            type=Type.postback, 
-            title='Non',
-            payload=Payload('/sortie')
-        )
-    ]
-    chat.send_button(sender_id, buttons, "Bonjour ! Je suis là pour t'aider à suivre ton cycle menstruel. Veux-tu commencer ?")
-    
-    # Enregistrer l'utilisateur
+
+    # Initialisation du modèle utilisateur
     user_request = UserModel(sender_id)
-    user_request.ajout_user()
+
+    # Récupérer les données utilisateur
+    result = user_request.get_user()
+
+    # Vérifier si le cycle a été saisi
+    if result and result.get('cycle_saisi') == 1:
+        buttons = [
+            Button(type=Type.postback, title='Oui', payload=Payload('/update_cycle')),
+            Button(type=Type.postback, title='Non', payload=Payload('/no_update')),
+        ]
+        chat.send_button(sender_id, buttons, "Souhaites-tu mettre à jour ton cycle ?")
+    else:
+        buttons = [
+            Button(type=Type.postback, title='Oui', payload=Payload('/saisie_date')),
+            Button(type=Type.postback, title='Non', payload=Payload('/sortie')),
+        ]
+        chat.send_button(
+            sender_id, buttons, "Bonjour ! Je suis là pour t'aider à suivre ton cycle menstruel. Veux-tu commencer ?"
+        )
+
+    # Enregistrer l'utilisateur si ce n'est pas déjà fait
+    if not user_request.is_user_exists():
+        user_request.ajout_user()
+        print("Nouvel utilisateur ajouté.")
+    else:
+        print("L'utilisateur est déjà enregistré.")
+
 
 @ampalibe.command('/reset')
 def reset(sender_id, cmd, **ext):
@@ -91,9 +103,14 @@ def get_date(sender_id, cmd, **ext):
 def get_dure(sender_id, cmd, **ext):
     try:
         query.set_action(sender_id, None)
+        
         # Vérification si la durée est bien un entier
         dure_cycle = int(cmd)
         query.set_temp(sender_id, 'dure_cycle', dure_cycle)
+
+        # Mise à jour de cycle_saisi à 1
+        user_request = UserModel(sender_id)  # Initialiser le modèle utilisateur
+        user_request.update_cycle_saisi(1)  # Met cycle_saisi à 1
 
         # Passer ensuite à la confirmation après avoir envoyé ce message
         confirmation(sender_id)
@@ -101,6 +118,8 @@ def get_dure(sender_id, cmd, **ext):
         chat.send_text(sender_id, "La durée doit être un nombre entier. Peux-tu réessayer ?")
         query.set_action(sender_id, "/get_dure")
     print(cmd)
+
+
 
 def confirmation(sender_id, **ext):
     query.set_action(sender_id, None)
@@ -370,5 +389,3 @@ async def envoie_notifications():
 
 #     except Exception as e:
 #         print(f"Erreur lors de l'envoi des notifications : {str(e)}")
-
-
