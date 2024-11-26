@@ -74,12 +74,15 @@ class NotificationModel(Model):
         except mysql.connector.Error as err:
             print(f"Erreur lors de la récupération des données de cycle : {err}")
 
-    def determine_zone(self, date, date_ovulation):
+    def determine_zone(self, date, start_date, date_ovulation, debut_fenetre_fertile, fin_fenetre_fertile, fin_regle):
         """Déterminer la zone du cycle pour une date donnée"""
-        if date == date_ovulation:
-            return 'orange'  # Ovulation
-        elif date < date_ovulation:
-            return 'verte'  # Période peu fertile
+
+        if debut_fenetre_fertile <= date <= fin_fenetre_fertile:
+            return 'orange'  # Fenêtre fertile
+        elif date == date_ovulation:
+            return 'rouge'  # Ovulation
+        elif start_date <= date <= fin_regle :
+            return 'bleue' # période de règles
         else:
-            return 'rouge'  # Période menstruelle ou autre
+            return 'verte'  # Autre période
 

@@ -89,7 +89,7 @@ def get_date(sender_id, cmd, **ext):
 
             # Si tout est correct, enregistrer la date
             query.set_temp(sender_id, 'date_debut', cmd)
-            chat.send_text(sender_id, "Quel est la durée de votre dernier cycle en jours ?")
+            chat.send_text(sender_id, "Quel est la durée de votre dernier cycle en jours ? (par exemple: 30)")
             query.set_action(sender_id, "/get_dure")
         else:
             raise ValueError("Le format de la date est incorrect.")
@@ -126,7 +126,10 @@ def confirmation(sender_id, **ext):
     debut_date = query.get_temp(sender_id, 'date_debut')
     cycle_dure = query.get_temp(sender_id, 'dure_cycle')
     chat.send_text(sender_id, f'Merci ! Tes dernières règles ont commencé le {debut_date} et ont duré {cycle_dure} jours. Je vais t\'envoyer des rappels pour les phases importantes de ton cycle, ainsi que des notifications quotidiennes sur ta zone.')
-    chat.send_text(sender_id, f"🟩 Zone Verte 🟢 : Période peu fertile. C'est une phase où il y a moins de chances de concevoir.\n🟧 Zone Orange 🟠 : Période ovulatoire. Cette phase correspond à la fenêtre de fertilité possible où l'ovulation approche.\n🟥 Zone Rouge 🔴 : Période fertile élevée. Cette phase est marquée une haute probabilité de fertilité.\n🟦 Zone Bleue 🔵 : Période de menstruation. C'est la phase où tu as tes règles, avec un très faible risque de grossesse.")
+    chat.send_text(sender_id, f"🟩 Zone Verte 🟢 : Période peu fertile. C'est une phase où il y a moins de chances de concevoir."
+                              f"\n🟧 Zone Orange 🟠 : Période ovulatoire. Cette phase correspond à la fenêtre de fertilité possible où l'ovulation approche."
+                              f"\n🟥 Zone Rouge 🔴 : Période fertile élevée. Cette phase est marquée une haute probabilité de fertilité.\n"
+                              f"🟦 Zone Bleue 🔵 : Période de menstruation. C'est la phase où tu as tes règles, avec un très faible risque de grossesse.")
     calcul(sender_id, debut_date, cycle_dure)
     # Ajouter des boutons pour demander si l'utilisateur veut mettre à jour
     buttons = [
@@ -177,7 +180,7 @@ def get_new_date(sender_id, cmd, **ext):
             if month < 1 or month > 12 or day < 1 or day > calendar.monthrange(year, month)[1]:
                 raise ValueError("La date est invalide.")
             query.set_temp(sender_id, 'new_date_debut', cmd)
-            chat.send_text(sender_id, "Quel est la durée de votre nouveau cycle en jours ?")
+            chat.send_text(sender_id, "Quel est la durée de votre cycle en jours ? (par exemple: 30)")
             query.set_action(sender_id, "/get_new_duration")
         else:
             raise ValueError("Le format de la date est incorrect.")
@@ -215,7 +218,15 @@ def confirmer_mise_a_jour(sender_id):
     # Mise à jour dans la base de données
     cycle_request = CyclesModel(user_id, new_start_date, new_duration, next_ovulation, next_periode, fin_regle, debut_fenetre, fin_fenetre)
     cycle_request.update_cycle()
-    # calcul(sender_id, new_start_date, new_duration)
+    
+    # Supprimer les anciennes notifications
+    notification_model = NotificationsModel()
+    cycle_id = cycle_request.get_cycle_id()  # Assurez-vous que cette méthode existe
+    notification_model.supprimer_notifications(cycle_id)
+
+    # Générer de nouvelles notifications
+    creation_notification(sender_id, new_start_date, new_duration)
+    
     # Ajouter des boutons pour demander si l'utilisateur veut mettre à jour
     buttons = [
         Button(
@@ -230,6 +241,7 @@ def confirmer_mise_a_jour(sender_id):
         )
     ]
     chat.send_button(sender_id, buttons, "Souhaites-tu mettre à jour les dates de ton cycle ?")
+
 
 @ampalibe.command('/no_update')
 def no_update(sender_id, cmd, **ext):
@@ -276,7 +288,7 @@ def calcul(sender_id, date_debut, dure_cycle):
                                 f"Prochaine date des règles : {resultats['prochaine_date_regle']}\n"
                                 f"Fin des règles : {resultats['fin_regle']}")
     chat.send_text(sender_id, f"Rappels clés supplémentaires\n"
-                                f"Ton ovulation est prévue le : {resultats['date_ovulation']}\n"
+                                f"La date probable de votre ovulation est estimée au : {resultats['date_ovulation']}\n"
                                 f"Prochaine date des règles : {resultats['prochaine_date_regle']}\n")
     
     cycle_request = CyclesModel(id_user, start_date, duration, next_ovulation, next_periode, fin_regle, debut_fenetre, fin_fenetre)
@@ -287,31 +299,26 @@ def creation_notification(sender_id, date_debut, dure_cycle):
     try:
         # Créer une instance de CyclesModel pour récupérer le cycle_id
         cycle_req = UserModel(sender_id)
-        
-        # Trouver le cycle_id correspondant au sender_id
         cycle_id = cycle_req.trouver_cycle_id()
         if not cycle_id:
             raise ValueError("Aucun cycle trouvé pour cet utilisateur.")
 
-        print(f'cycle_id : {cycle_id}')
         # Calculer la date de la prochaine période
         start_date = datetime.strptime(date_debut, "%d/%m/%Y")
         next_period = start_date + timedelta(days=dure_cycle)
 
-        # Utiliser NotificationsModel pour générer les notifications
+        # Générer les notifications
         notification_model = NotificationsModel()
         notification_model.generer_notification(cycle_id, start_date.strftime('%Y-%m-%d'), next_period.strftime('%Y-%m-%d'))
         
         print(f"Notifications créées avec succès pour l'utilisateur {sender_id}.")
         
-    except ValueError as e:
-        print(f"Erreur lors de la création de notification pour {sender_id} : {str(e)}")
     except Exception as e:
-        print(f"Erreur inattendue lors de la création de notification pour {sender_id} : {str(e)}")
+        print(f"Erreur lors de la création de notification : {str(e)}")
 
     # Nettoyer les variables temporaires
-    query.del_temp(sender_id, 'date_debut')
-    query.del_temp(sender_id, 'dure_cycle')
+    # query.del_temp(sender_id, 'date_debut')
+    # query.del_temp(sender_id, 'dure_cycle')
 
 
 @ampalibe.crontab('* * * * *')
@@ -337,7 +344,7 @@ async def envoie_notifications():
 
                     if messenger_id:
                         # Récupérer les dates d'ovulation et de fin des règles
-                        ovulation, fin_regles = query.get_rappel(cycle_id)
+                        ovulation, next_period = query.get_rappel(cycle_id)
 
                         # Envoyer un message basé sur le zone_type
                         if zone_type == 'orange':
@@ -352,8 +359,8 @@ async def envoie_notifications():
                             chat.send_text(messenger_id, "Rappel de cycle : informations de zone inconnues.")
 
                         # Ajouter les informations sur l'ovulation et la fin des règles
-                        if ovulation and fin_regles:
-                            chat.send_text(messenger_id, f"⚠️ Ton ovulation est prévue le {ovulation}. Tes prochaines règles devraient arriver autour du {fin_regles}.")
+                        if ovulation and next_period:
+                            chat.send_text(messenger_id, f"⚠️ Ton ovulation pourrait avoir lieu autour du {ovulation}. Tes prochaines règles devraient arriver autour du {next_period}.")
                         else:
                             chat.send_text(messenger_id, "Les informations sur l'ovulation et les règles ne sont pas disponibles.")
 

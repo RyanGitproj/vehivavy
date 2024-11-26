@@ -34,8 +34,8 @@ class NotificationsModel(Model):
         """Récupérer les notifications non envoyées pour aujourd'hui"""
         try:
             req = """SELECT id, cycle_id, zone_type FROM notifications
-            WHERE notification_date = %s AND sent = 0"""
-            today = datetime.now().strftime('%Y-%m-%d')
+                     WHERE notification_date = %s AND sent = 0"""
+            today = datetime.now().strftime("%Y-%m-%d")
             self.cursor.execute(req, (today,))
 
             return self.cursor.fetchall()
@@ -143,4 +143,17 @@ class NotificationsModel(Model):
 
         except mysql.connector.Error as err:
             print(f"Erreur lors de la récupération des données de cycle : {err}")
+        
+    def supprimer_notifications(self, cycle_id):
+        """Supprimer toutes les notifications associées à un cycle."""
+        try:
+            req = "DELETE FROM notifications WHERE cycle_id = %s"
+            self.cursor.execute(req, (cycle_id,))
+            self.db.commit()
+            print(f"Notifications supprimées pour le cycle_id {cycle_id}")
+        except mysql.connector.Error as err:
+            print(f"Erreur lors de la suppression des notifications : {err}")
+            self.db.rollback()
+
+
 

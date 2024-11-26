@@ -27,5 +27,5 @@ class Configuration:
     VERIF_TOKEN = 'VEHIVAVYAPP'
 
     APP_HOST = "0.0.0.0"
-    APP_PORT = 4000
+    APP_PORT = 4555
     APP_URL = ''
