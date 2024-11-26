@@ -3,7 +3,7 @@ from datetime import datetime
 import mysql
 
 class CyclesModel(Model):
-    def __init__(self, user_id, start_date, duration, next_ovulation, next_period, fin_regle, debut_fenetre, fin_fenetre):
+    def __init__(self, user_id, start_date, duration, next_ovulation, next_period, fin_regle, debut_fenetre, fin_fenetre, cycle_id=None):
         super().__init__()
         self.user_id = user_id
         # Convertir toutes les dates du format JJ/MM/AAAA au format AAAA-MM-JJ pour MySQL
@@ -15,6 +15,7 @@ class CyclesModel(Model):
         self.debut_fenetre = self._convert_to_mysql_format(debut_fenetre)
         self.fin_fenetre = self._convert_to_mysql_format(fin_fenetre)
         self.created_at = datetime.now()
+        self.cycle_id = cycle_id
 
     def _convert_to_mysql_format(self, date_str):
         """Convertir une date du format JJ/MM/AAAA au format AAAA-MM-JJ pour MySQL"""
