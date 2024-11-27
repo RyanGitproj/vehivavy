@@ -1,21 +1,29 @@
-# services:
-#   web:
-#     build: .
-#     command: sh -c "ampalibe run --dev"
-#     ports:
-#       - 4555:4555
-#     volumes:
-#       - .:/app  # Monte le répertoire courant dans /app du conteneur
-#     env_file:
-#       - .env
-version: "3.8"
-
+version: "3.9"
 services:
-  web:
-    build: .
-    command: sh -c "uvicorn core --reload --port=8000 --host=0.0.0.0"
-    ports:
-      - 8000:8000
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
-      - .:/app  # Monte le répertoire courant dans /app du conteneur
-  
+      - .:/app
+    environment:
+      - DB_HOST=34.28.32.137
+      - DB_USER=root
+      - DB_PASSWORD=07ke6u%56O5x
+      - DB_NAME=vosaryai
+    depends_on:
+      - db
+    command: ampalibe run
+
+  db:
+    image: mysql:8.0
+    container_name: mysql-container
+    environment:
+      MYSQL_ROOT_PASSWORD: MYSQL_DATABASE=vosaryai
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  db_data:

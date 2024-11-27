@@ -8,19 +8,12 @@ class Configuration:
     '''
     ADAPTER = 'MYSQL'
 
-    # DB_FILE = 'ampalibe.db'
-    # DB_HOST = "34.28.32.137"
-    # DB_USER = 'root'
-    # DB_PASSWORD = '07ke6u%56O5x'
-    # DB_PORT = 3306
-    # DB_NAME = 'vosaryai'
-    # SRV_PROTOCOL = ''
-
-    DB_HOST = "localhost"
+    DB_FILE = 'ampalibe.db'
+    DB_HOST = "DB_HOST"
     DB_USER = 'root'
-    DB_PASSWORD = ''
+    DB_PASSWORD = 'PASSWORD'
     DB_PORT = 3306
-    DB_NAME = 'vehivavy'
+    DB_NAME = 'vosaryai'
     SRV_PROTOCOL = ''
 
     ACCESS_TOKEN = 'EAAWhes9F3lcBOwxtu73RG1JMIxtKgjBZCqsVsaQJrIZCFwRrOrytBEvAcCnCjNrJHYV2Voh2X5z9FqONNF8o5pkUhOYoNbQCNjLo0Qdg9MzPqFLqDZAqO0uy8viLyx4EtckudBzVRVxiOawOX1OQXNzNZCRfZCYQf1ekTlPact2UZC5e8ynv7AwmUuq4j6TLCiMAZDZD'
