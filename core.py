@@ -39,7 +39,7 @@ def main(sender_id, cmd, **ext):
     else:
         buttons = [
             Button(type=Type.postback, title='Oui', payload=Payload('/saisie_date')),
-            Button(type=Type.postback, title='Non', payload=Payload('/sortie')),
+            Button(type=Type.postback, title='Non', payload=Payload('/')),
         ]
         chat.send_button(
             sender_id, buttons, "Bonjour ! Je suis là pour t'aider à suivre ton cycle menstruel. Veux-tu commencer ?"
@@ -64,6 +64,7 @@ def reset(sender_id, cmd, **ext):
         print(cmd)
         print("-------")
         print(ext)
+
 
 @ampalibe.command('/saisie_date')
 def saisie_date(sender_id, cmd, **ext):
