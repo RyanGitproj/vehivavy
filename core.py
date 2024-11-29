@@ -78,6 +78,7 @@ def saisie_date(sender_id, cmd, **ext):
 def get_date(sender_id, cmd, **ext):
     try:
         query.set_action(sender_id, None)
+
         # Vérification du format de la date (JJ/MM/AAAA)
         if re.match(r'^\d{2}/\d{2}/\d{4}$', cmd):
             day, month, year = map(int, cmd.split('/'))
@@ -87,6 +88,17 @@ def get_date(sender_id, cmd, **ext):
                 raise ValueError("Le mois est invalide.")
             if day < 1 or day > calendar.monthrange(year, month)[1]:
                 raise ValueError("Le jour est invalide pour ce mois et cette année.")
+
+            # Convertir la date saisie en objet datetime
+            date_debut = datetime(year, month, day).date()
+            today = datetime.now().date()
+            trois_mois_en_arriere = today - timedelta(days=60)
+
+            # Vérification que la date est dans les 3 derniers mois et pas après aujourd'hui
+            if date_debut < trois_mois_en_arriere:
+                raise ValueError("La date ne peut pas être antérieure à 2 mois.")
+            if date_debut > today:
+                raise ValueError("La date ne peut pas être dans le futur.")
 
             # Si tout est correct, enregistrer la date
             query.set_temp(sender_id, 'date_debut', cmd)
@@ -107,6 +119,11 @@ def get_dure(sender_id, cmd, **ext):
         
         # Vérification si la durée est bien un entier
         dure_cycle = int(cmd)
+        
+        # Vérification que la durée du cycle est entre 21 et 45 jours
+        if dure_cycle < 21 or dure_cycle > 45:
+            raise ValueError("La durée du cycle doit être comprise entre 21 et 45 jours.")
+
         query.set_temp(sender_id, 'dure_cycle', dure_cycle)
 
         # Mise à jour de cycle_saisi à 1
@@ -115,8 +132,8 @@ def get_dure(sender_id, cmd, **ext):
 
         # Passer ensuite à la confirmation après avoir envoyé ce message
         confirmation(sender_id)
-    except ValueError:
-        chat.send_text(sender_id, "La durée doit être un nombre entier. Peux-tu réessayer ?")
+    except ValueError as e:
+        chat.send_text(sender_id, str(e) + " Merci de réessayer en entrant un nombre entier entre 21 et 45.")
         query.set_action(sender_id, "/get_dure")
     print(cmd)
 
@@ -176,10 +193,27 @@ def start_update(sender_id, cmd, **ext):
 def get_new_date(sender_id, cmd, **ext):
     try:
         query.set_action(sender_id, None)
+
+        # Vérification du format de la date (JJ/MM/AAAA)
         if re.match(r'^\d{2}/\d{2}/\d{4}$', cmd):
             day, month, year = map(int, cmd.split('/'))
+
+            # Vérification que la date est valide
             if month < 1 or month > 12 or day < 1 or day > calendar.monthrange(year, month)[1]:
                 raise ValueError("La date est invalide.")
+
+            # Convertir la date entrée en objet datetime
+            date_debut = datetime(year, month, day).date()
+            today = datetime.now().date()
+            trois_mois_en_arriere = today - timedelta(days=60)
+
+            # Vérification que la date est dans la plage autorisée
+            if date_debut < trois_mois_en_arriere:
+                raise ValueError("La date ne peut pas être antérieure à 2 mois.")
+            if date_debut > today:
+                raise ValueError("La date ne peut pas être dans le futur.")
+
+            # Si la date est valide, enregistrer la date et passer à l'étape suivante
             query.set_temp(sender_id, 'new_date_debut', cmd)
             chat.send_text(sender_id, "Quel est la durée de votre cycle en jours ? (par exemple: 30)")
             query.set_action(sender_id, "/get_new_duration")
@@ -193,12 +227,23 @@ def get_new_date(sender_id, cmd, **ext):
 def get_new_duration(sender_id, cmd, **ext):
     try:
         query.set_action(sender_id, None)
+
+        # Vérification que la durée du cycle est un entier
         dure_cycle = int(cmd)
+
+        # Vérification que la durée du cycle est entre 21 et 45 jours
+        if dure_cycle < 21 or dure_cycle > 45:
+            raise ValueError("La durée du cycle doit être comprise entre 21 et 45 jours.")
+
+        # Si la durée est valide, enregistrer la durée et confirmer la mise à jour
         query.set_temp(sender_id, 'new_dure_cycle', dure_cycle)
         confirmer_mise_a_jour(sender_id)
-    except ValueError:
-        chat.send_text(sender_id, "La durée doit être un nombre entier. Peux-tu réessayer ?")
+
+    except ValueError as e:
+        chat.send_text(sender_id, str(e) + " Merci de réessayer avec une valeur entre 21 et 45.")
         query.set_action(sender_id, "/get_new_duration")
+
+
 
 def confirmer_mise_a_jour(sender_id):
     new_start_date = query.get_temp(sender_id, 'new_date_debut')
@@ -361,7 +406,7 @@ async def envoie_notifications():
 
                         # Ajouter les informations sur l'ovulation et la fin des règles
                         if ovulation and next_period:
-                            chat.send_text(messenger_id, f"⚠️ Ton ovulation pourrait avoir lieu autour du {ovulation}. Tes prochaines règles devraient arriver autour du {next_period}.")
+                            chat.send_text(messenger_id, f"⚠️ Date probable d'ovulation : {ovulation}. Tes prochaines règles devraient arriver autour du {next_period}.")
                         else:
                             chat.send_text(messenger_id, "Les informations sur l'ovulation et les règles ne sont pas disponibles.")
 
@@ -378,22 +423,3 @@ async def envoie_notifications():
     except Exception as e:
         print(f"Erreur lors de l'envoi des notifications : {str(e)}")
 
-
-
-
-
-# # Planification pour exécuter la fonction toutes les minutes
-# crontab('* * * * *', func=envoie_notifications, loop=ampalibe.core.loop)
-    
-# def send_notifications_all_users():
-#     try:
-#         # Récupérer la liste des utilisateurs
-#         all_users = query.get_list_user()
-
-#         # Parcourir chaque utilisateur et envoyer une notification simple
-#         for user in all_users:
-#             sender_id = user  # Chaque 'user' contient uniquement le messenger_id
-#             chat.send_text(sender_id, "Ceci est un rappel pour votre cycle menstruel.")
-
-#     except Exception as e:
-#         print(f"Erreur lors de l'envoi des notifications : {str(e)}")

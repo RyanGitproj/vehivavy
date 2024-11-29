@@ -50,7 +50,7 @@ class CyclesModel(Model):
             """
             self.cursor.execute(req, (self.start_date, self.duration, self.next_ovulation, 
                                     self.next_periode, self.fin_regle, self.debut_fenetre, 
-                                    self.fin_fenetre, self.created_at, self.user_id))
+                                    self.fin_fenetre, self.created_at, self.user_id)) 
             self.db.commit()
             print("Cycle mis à jour avec succès.")
 

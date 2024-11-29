@@ -71,7 +71,7 @@ class CustomModel(Model):
         try:
             # Requête pour obtenir les dates d'ovulation et de fin des règles
             req = """
-            SELECT next_ovulation, fin_regles
+            SELECT next_ovulation, next_period
             FROM cycles
             WHERE id = %s
             """
@@ -79,38 +79,11 @@ class CustomModel(Model):
             result = self.cursor.fetchone()  # Récupérer un seul résultat
             if result:
                 # Retourner les dates sous forme de tuple
-                next_ovulation, fin_regles = result
-                return next_ovulation, fin_regles
+                next_ovulation, next_period = result
+                return next_ovulation, next_period
             else:
                 print(f"Aucune donnée trouvée pour le cycle_id {cycle_id}")
                 return None, None
         except Exception as e:
             print(f"Erreur lors de la récupération des données : {str(e)}")
             return None, None
-
-
-
-    # @Model.verif_db
-    # def get_list_user(self):
-    #     '''
-    #         Method to retrieve all messenger_id of users
-    #     '''
-    #     req = "SELECT messenger_id FROM users"
-    #     self.cursor.execute(req)
-    #     messenger_ids = self.cursor.fetchall()  # Fetch all messenger_id values
-    #     return [row[0] for row in messenger_ids]  # Extract messenger_id from each row
-    
-    # def get_zone_type(self, current_date, user_id):
-    #     '''
-    #         Method to retrieve all zone_type of users where date is equal to current_date
-    #     '''
-    #     req = """
-    #         SELECT users.messenger_id, notifications.zone_type
-    #         FROM users
-    #         JOIN cycles ON users.id = %s
-    #         WHERE cycles.date = %s
-    #     """
-    #     self.cursor.execute(req, (user_id, current_date,))
-    #     data = self.cursor.fetchall()
-    #     return data
-
