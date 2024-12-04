@@ -8,15 +8,16 @@ class Configuration:
     '''
     ADAPTER = 'MYSQL'
 
-    DB_FILE = 'ampalibe.db'
-    DB_HOST = "DB_HOST"
-    DB_USER = 'root'
-    DB_PASSWORD = 'PASSWORD'
-    DB_PORT = 3306
-    DB_NAME = 'vosaryai'
-    SRV_PROTOCOL = ''
+    
 
-    ACCESS_TOKEN = 'TOKEN'
+    # DB_HOST = "localhost"
+    # DB_USER = 'root'
+    # DB_PASSWORD = ''
+    # DB_PORT = 3306
+    # DB_NAME = 'vehivavy'
+    # SRV_PROTOCOL = ''
+
+    ACCESS_TOKEN = 'EAAWhes9F3lcBO9dlrCTq8V2XHSzZC9ndJg5PRFZCkALz1bC7ag5ZBZBzR89YAbh856ld1ifMJvo3xKvYTSAwVk99eRYR6kJIjlu7AR1mQfeNZBAhkBqKRNur90cC67915Q159pC00UgQpEPhJHWg0Y0iTZBoNlMJAuurpJzwRI5ZAvIJf2SAJV2sLkOpPgzOZBAwZAAZDZD'
     VERIF_TOKEN = 'VEHIVAVYAPP'
 
     APP_HOST = "0.0.0.0"

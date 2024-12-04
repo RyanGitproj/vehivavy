@@ -10,7 +10,7 @@ services:
       - DB_HOST=34.28.32.137
       - DB_USER=root
       - DB_PASSWORD=07ke6u%56O5x
-      - DB_NAME=vosaryai
+      - DB_NAME=vehivavy
     depends_on:
       - db
     command: ampalibe run

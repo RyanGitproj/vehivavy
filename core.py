@@ -92,11 +92,11 @@ def get_date(sender_id, cmd, **ext):
             # Convertir la date saisie en objet datetime
             date_debut = datetime(year, month, day).date()
             today = datetime.now().date()
-            trois_mois_en_arriere = today - timedelta(days=60)
+            trois_mois_en_arriere = today - timedelta(days=45)
 
             # Vérification que la date est dans les 3 derniers mois et pas après aujourd'hui
             if date_debut < trois_mois_en_arriere:
-                raise ValueError("La date ne peut pas être antérieure à 2 mois.")
+                raise ValueError("La date ne peut pas être antérieure à 45 jours.")
             if date_debut > today:
                 raise ValueError("La date ne peut pas être dans le futur.")
 
@@ -133,7 +133,8 @@ def get_dure(sender_id, cmd, **ext):
         # Passer ensuite à la confirmation après avoir envoyé ce message
         confirmation(sender_id)
     except ValueError as e:
-        chat.send_text(sender_id, str(e) + " Merci de réessayer en entrant un nombre entier entre 21 et 45.")
+        # chat.send_text(sender_id, str(e) + " Merci de réessayer en entrant un nombre entier entre 21 et 45.")
+        chat.send_text(sender_id, " Merci de réessayer avec une valeur entre 21 et 45.")
         query.set_action(sender_id, "/get_dure")
     print(cmd)
 
@@ -205,11 +206,11 @@ def get_new_date(sender_id, cmd, **ext):
             # Convertir la date entrée en objet datetime
             date_debut = datetime(year, month, day).date()
             today = datetime.now().date()
-            trois_mois_en_arriere = today - timedelta(days=60)
+            trois_mois_en_arriere = today - timedelta(days=45)
 
             # Vérification que la date est dans la plage autorisée
             if date_debut < trois_mois_en_arriere:
-                raise ValueError("La date ne peut pas être antérieure à 2 mois.")
+                raise ValueError("La date ne peut pas être antérieure à 45 jours.")
             if date_debut > today:
                 raise ValueError("La date ne peut pas être dans le futur.")
 
@@ -240,7 +241,8 @@ def get_new_duration(sender_id, cmd, **ext):
         confirmer_mise_a_jour(sender_id)
 
     except ValueError as e:
-        chat.send_text(sender_id, str(e) + " Merci de réessayer avec une valeur entre 21 et 45.")
+        # chat.send_text(sender_id, str(e) + " Merci de réessayer avec une valeur entre 21 et 45.")
+        chat.send_text(sender_id, " Merci de réessayer avec une valeur entre 21 et 45.")
         query.set_action(sender_id, "/get_new_duration")
 
 
@@ -367,7 +369,7 @@ def creation_notification(sender_id, date_debut, dure_cycle):
     # query.del_temp(sender_id, 'dure_cycle')
 
 
-@ampalibe.crontab('* * * * *')
+@ampalibe.crontab('*/5 * * * *')
 async def envoie_notifications():
     try:
         # Récupérer les notifications non envoyées pour aujourd'hui
