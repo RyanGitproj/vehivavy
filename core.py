@@ -10,7 +10,49 @@ import re
 import calendar
 from datetime import datetime, timedelta
 from NotificationsModel import NotificationsModel
+import redisModel
+import redis
 
+# Initialisation de Redis
+redis_client = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
+
+# Fonctions auxiliaires pour gérer les données temporaires
+def set_temp_data(user_id, key, value, expiration=3600):
+    """
+    Stocke une donnée temporaire dans Redis avec une expiration (par défaut 1 heure).
+    """
+    redis_client.setex(f"{user_id}:{key}", expiration, value)
+
+def get_temp_data(user_id, key):
+    """
+    Récupère une donnée temporaire depuis Redis.
+    """
+    return redis_client.get(f"{user_id}:{key}")
+
+def del_temp_data(user_id, key):
+    """
+    Supprime une donnée temporaire dans Redis.
+    """
+    redis_client.delete(f"{user_id}:{key}")
+
+def schedule_notification(user_id, message, send_date):
+    """
+    Planifie une notification en la stockant dans Redis avec une date d'envoi.
+    """
+    redis_client.zadd("notifications", {f"{user_id}:{message}": send_date.timestamp()})
+
+def get_due_notifications():
+    """
+    Récupère les notifications qui doivent être envoyées maintenant ou avant.
+    """
+    current_time = datetime.now().timestamp()
+    return redis_client.zrangebyscore("notifications", 0, current_time)
+
+def remove_notification(notification_key):
+    """
+    Supprime une notification après son envoi.
+    """
+    redis_client.zrem("notifications", notification_key)
 
 chat = Messenger()
 query = CustomModel()
@@ -101,7 +143,7 @@ def get_date(sender_id, cmd, **ext):
                 raise ValueError("La date ne peut pas être dans le futur.")
 
             # Si tout est correct, enregistrer la date
-            query.set_temp(sender_id, 'date_debut', cmd)
+            set_temp_data(sender_id, 'date_debut', cmd)
             chat.send_text(sender_id, "Quel est la durée de votre dernier cycle en jours ? (par exemple: 30)")
             query.set_action(sender_id, "/get_dure")
         else:
@@ -124,7 +166,7 @@ def get_dure(sender_id, cmd, **ext):
         if dure_cycle < 21 or dure_cycle > 45:
             raise ValueError("La durée du cycle doit être comprise entre 21 et 45 jours.")
 
-        query.set_temp(sender_id, 'dure_cycle', dure_cycle)
+        set_temp_data(sender_id, 'dure_cycle', dure_cycle)
 
         # Mise à jour de cycle_saisi à 1
         user_request = UserModel(sender_id)  # Initialiser le modèle utilisateur
@@ -215,7 +257,7 @@ def get_new_date(sender_id, cmd, **ext):
                 raise ValueError("La date ne peut pas être dans le futur.")
 
             # Si la date est valide, enregistrer la date et passer à l'étape suivante
-            query.set_temp(sender_id, 'new_date_debut', cmd)
+            set_temp_data(sender_id, 'new_date_debut', cmd)
             chat.send_text(sender_id, "Quel est la durée de votre cycle en jours ? (par exemple: 30)")
             query.set_action(sender_id, "/get_new_duration")
         else:
@@ -237,7 +279,7 @@ def get_new_duration(sender_id, cmd, **ext):
             raise ValueError("La durée du cycle doit être comprise entre 21 et 45 jours.")
 
         # Si la durée est valide, enregistrer la durée et confirmer la mise à jour
-        query.set_temp(sender_id, 'new_dure_cycle', dure_cycle)
+        set_temp_data(sender_id, 'new_dure_cycle', dure_cycle)
         confirmer_mise_a_jour(sender_id)
 
     except ValueError as e:
@@ -412,6 +454,16 @@ async def envoie_notifications():
                         else:
                             chat.send_text(messenger_id, "Les informations sur l'ovulation et les règles ne sont pas disponibles.")
 
+                         # Ajouter un bouton pour demander une notification demain
+                        chat.send_button(
+                            sender_id=messenger_id,
+                            text="Souhaites-tu recevoir une notification demain ?",  # Texte du message
+                            buttons=[
+                                Button(type=Type.postback, title='Recevoir', payload=Payload('/recevoir_notification_demain')),
+                            ]
+                        )
+
+
                         # Marquer la notification comme envoyée
                         query.marquer_comme_envoyee(notification_id)
                         print(f"Notification envoyée avec succès à {messenger_id} (zone: {zone_type}).")
@@ -425,3 +477,12 @@ async def envoie_notifications():
     except Exception as e:
         print(f"Erreur lors de l'envoi des notifications : {str(e)}")
 
+@ampalibe.action('/recevoir_notification_demain')
+def recevoir_notification_demain(sender_id, cmd, **ext):
+    try:
+        # Planifier une notification pour demain
+        query.planifier_notification_pour_demain(sender_id)
+        chat.send_text(sender_id, "✅ Tu recevras une notification demain. 😊")
+    except Exception as e:
+        chat.send_text(sender_id, "❌ Une erreur est survenue. Réessaie plus tard.")
+        print(f"Erreur lors de la planification de notification pour demain : {str(e)}")
