@@ -10,7 +10,6 @@ import re
 import calendar
 from datetime import datetime, timedelta
 from NotificationsModel import NotificationsModel
-import redisModel
 import redis
 
 # Initialisation de Redis
@@ -53,6 +52,18 @@ def remove_notification(notification_key):
     Supprime une notification après son envoi.
     """
     redis_client.zrem("notifications", notification_key)
+
+def get_cached_data(key):
+    """Récupère les données du cache"""
+    return redis_client.get(key)
+
+def set_cached_data(key, value, expiration=3600):
+    """Ajoute des données dans le cache avec une expiration"""
+    redis_client.set(key, value, ex=expiration)
+
+def delete_cached_data(key):
+    """Supprime une donnée dans le cache"""
+    redis_client.delete(key)
 
 chat = Messenger()
 query = CustomModel()
@@ -401,6 +412,12 @@ def creation_notification(sender_id, date_debut, dure_cycle):
         notification_model = NotificationsModel()
         notification_model.generer_notification(cycle_id, start_date.strftime('%Y-%m-%d'), next_period.strftime('%Y-%m-%d'))
         
+        # Planifier la notification dans Redis
+        redis_client.zadd("notifications", {
+            f"{cycle_id}:orange": (start_date + timedelta(days=10)).timestamp(),  # Exemple de zone
+            f"{cycle_id}:verte": (start_date + timedelta(days=20)).timestamp(),  # Exemple de zone
+        })
+        
         print(f"Notifications créées avec succès pour l'utilisateur {sender_id}.")
         
     except Exception as e:
@@ -409,80 +426,77 @@ def creation_notification(sender_id, date_debut, dure_cycle):
     # Nettoyer les variables temporaires
     # query.del_temp(sender_id, 'date_debut')
     # query.del_temp(sender_id, 'dure_cycle')
-
-
+        
+        
 @ampalibe.crontab('*/5 * * * *')
 async def envoie_notifications():
     try:
-        # Récupérer les notifications non envoyées pour aujourd'hui
-        notifications = query.verifier_notification_a_envoyer()
+        current_time = datetime.now().timestamp()
+        # Récupérer les notifications dues
+        due_notifications = redis_client.zrangebyscore("notifications", 0, current_time)
+        
+        print("Notifications à envoyer:", due_notifications)
 
-        print("Notifications à envoyer:", notifications)  # Vérification du contenu
+        for notification in due_notifications:
+            try:
+                cycle_id, zone_type = notification.split(":")
+                messenger_id = query.get_messenger_id(cycle_id)
 
-        # Vérifier si notifications est une liste
-        if isinstance(notifications, list):
-            # Parcourir chaque notification
-            for notification in notifications:
-                # Vérification si la notification est un tuple
-                if isinstance(notification, tuple) and len(notification) == 3:
-                    notification_id = notification[0]  # Accéder par indice
-                    cycle_id = notification[1]          # Accéder par indice
-                    zone_type = notification[2]         # Accéder par indice
-
-                    # Récupérer le messenger_id associé au cycle_id
-                    messenger_id = query.get_messenger_id(cycle_id)
-
-                    if messenger_id:
-                        # Récupérer les dates d'ovulation et de fin des règles
-                        ovulation, next_period = query.get_rappel(cycle_id)
-
-                        # Envoyer un message basé sur le zone_type
-                        if zone_type == 'orange':
-                            chat.send_text(messenger_id, "🟧 Rappel du cycle: \nAttention, tu es en zone 🟠 aujourd'hui. C'est une période où tu pourrais être fertile, reste attentive à ton corps")
-                        elif zone_type == 'verte':
-                            chat.send_text(messenger_id, "🟩 Rappel de cycle : \nAujourd'hui, tu es en zone 🟢. C'est une phase peu fertile. Profite de ta journée en toute tranquillité !")
-                        elif zone_type == 'rouge':
-                            chat.send_text(messenger_id, "🟥 Rappel de cycle : \nAujourd'hui, tu es en zone 🔴. Cela signifie que tu es dans une phase fertile élevée. Prends soin de toi.")
-                        elif zone_type == 'bleue':
-                            chat.send_text(messenger_id, "🟦 Rappel de cycle : \nTu es actuellement en période de menstruation (zone bleue 🔵), avec un très faible risque de grossesse.")
-                        else:
-                            chat.send_text(messenger_id, "Rappel de cycle : informations de zone inconnues.")
-
-                        # Ajouter les informations sur l'ovulation et la fin des règles
-                        if ovulation and next_period:
-                            chat.send_text(messenger_id, f"⚠️ Date probable d'ovulation : {ovulation}. Tes prochaines règles devraient arriver autour du {next_period}.")
-                        else:
-                            chat.send_text(messenger_id, "Les informations sur l'ovulation et les règles ne sont pas disponibles.")
-
-                         # Ajouter un bouton pour demander une notification demain
-                        chat.send_button(
-                            sender_id=messenger_id,
-                            text="Souhaites-tu recevoir une notification demain ?",  # Texte du message
-                            buttons=[
-                                Button(type=Type.postback, title='Recevoir', payload=Payload('/recevoir_notification_demain')),
-                            ]
-                        )
-
-
-                        # Marquer la notification comme envoyée
-                        query.marquer_comme_envoyee(notification_id)
-                        print(f"Notification envoyée avec succès à {messenger_id} (zone: {zone_type}).")
+                if messenger_id:
+                    # Envoyer les messages selon la zone_type
+                    if zone_type == 'orange':
+                        chat.send_text(messenger_id, "🟧 Rappel du cycle: \nAttention, tu es en zone 🟠 aujourd'hui. C'est une période où tu pourrais être fertile, reste attentive à ton corps.")
+                    elif zone_type == 'verte':
+                        chat.send_text(messenger_id, "🟩 Rappel de cycle : \nAujourd'hui, tu es en zone 🟢. C'est une phase peu fertile. Profite de ta journée en toute tranquillité !")
+                    elif zone_type == 'rouge':
+                        chat.send_text(messenger_id, "🟥 Rappel de cycle : \nAujourd'hui, tu es en zone 🔴. Cela signifie que tu es dans une phase fertile élevée. Prends soin de toi.")
+                    elif zone_type == 'bleue':
+                        chat.send_text(messenger_id, "🟦 Rappel de cycle : \nTu es actuellement en période de menstruation (zone bleue 🔵), avec un très faible risque de grossesse.")
                     else:
-                        print(f"Aucun utilisateur trouvé pour le cycle_id {cycle_id}")
-                else:
-                    print(f"La notification n'est pas un tuple valide : {notification}")
-        else:
-            print(f"Les notifications ne sont pas sous forme de liste : {notifications}")
+                        chat.send_text(messenger_id, "Rappel de cycle : informations de zone inconnues.")
 
+                    # Ajouter les informations sur l'ovulation et la fin des règles
+                    ovulation, next_period = query.get_rappel(cycle_id)
+                    if ovulation and next_period:
+                        chat.send_text(messenger_id, f"⚠️ Date probable d'ovulation : {ovulation}. Tes prochaines règles devraient arriver autour du {next_period}.")
+                    else:
+                        chat.send_text(messenger_id, "Les informations sur l'ovulation et les règles ne sont pas disponibles.")
+
+
+                    # Demander s'il veut recevoir une notification demain
+                    # buttons = [
+                    #     Button(
+                    #         type=Type.postback,
+                    #         title='Recevoir',
+                    #         payload=Payload('/recevoir_notification_demain')
+                    #     )
+                    # ]
+                    # chat.send_button(buttons, "Souhaites-tu recevoir une notification demain ?")
+                    
+                    print(f"Notification envoyée avec succès à {messenger_id} (zone: {zone_type}).")
+
+                # Supprimer la notification après envoi
+                redis_client.zrem("notifications", notification)
+
+            except Exception as inner_e:
+                print(f"Erreur lors du traitement de la notification {notification}: {str(inner_e)}")
     except Exception as e:
         print(f"Erreur lors de l'envoi des notifications : {str(e)}")
+
 
 @ampalibe.action('/recevoir_notification_demain')
 def recevoir_notification_demain(sender_id, cmd, **ext):
     try:
-        # Planifier une notification pour demain
-        query.planifier_notification_pour_demain(sender_id)
+        # Récupérer le cycle_id du payload
+        cycle_id = cmd.split(":")[1]
+
+        # Configurer une nouvelle notification pour demain
+        tomorrow = datetime.now() + timedelta(days=1)
+        timestamp = tomorrow.timestamp()
+        redis_client.zadd("notifications", {f"{cycle_id}:zone_type_placeholder": timestamp})
+
+        # Envoyer un message de confirmation
         chat.send_text(sender_id, "✅ Tu recevras une notification demain. 😊")
+        print(f"Notification programmée pour demain pour {sender_id} (cycle_id: {cycle_id}).")
     except Exception as e:
-        chat.send_text(sender_id, "❌ Une erreur est survenue. Réessaie plus tard.")
-        print(f"Erreur lors de la planification de notification pour demain : {str(e)}")
+        print(f"Erreur lors de la programmation de la notification pour demain : {str(e)}")

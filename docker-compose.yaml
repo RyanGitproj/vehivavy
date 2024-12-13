@@ -7,19 +7,25 @@ services:
     volumes:
       - .:/app
     environment:
-      - DB_HOST=34.28.32.137
+      - DB_HOST=34.141.105.101
       - DB_USER=root
       - DB_PASSWORD=07ke6u%56O5x
       - DB_NAME=vehivavy
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       - db
+      - redis
     command: ampalibe run
+    ports:
+      - "4555:4555"
 
   db:
     image: mysql:8.0
     container_name: mysql-container
     environment:
-      MYSQL_ROOT_PASSWORD: MYSQL_DATABASE=vosaryai
+      MYSQL_ROOT_PASSWORD: 07ke6u%56O5x
+      MYSQL_DATABASE: vehivavy
     ports:
       - "3306:3306"
     volumes:
@@ -27,6 +33,7 @@ services:
   
   redis:
     image: redis:latest
+    container_name: redis-container
     ports:
       - "6379:6379"
 
