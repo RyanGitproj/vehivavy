@@ -198,10 +198,13 @@ def confirmation(sender_id, **ext):
     debut_date = query.get_temp(sender_id, 'date_debut')
     cycle_dure = query.get_temp(sender_id, 'dure_cycle')
     chat.send_text(sender_id, f'Merci ! Tes dernières règles ont commencé le {debut_date} et ont duré {cycle_dure} jours. Je vais t\'envoyer des rappels pour les phases importantes de ton cycle, ainsi que des notifications quotidiennes sur ta zone.')
-    chat.send_text(sender_id, f"🟩 Zone Verte 🟢 : Période peu fertile. C'est une phase où il y a moins de chances de concevoir."
-                              f"\n🟧 Zone Orange 🟠 : Période ovulatoire. Cette phase correspond à la fenêtre de fertilité possible où l'ovulation approche."
-                              f"\n🟥 Zone Rouge 🔴 : Période fertile élevée. Cette phase est marquée une haute probabilité de fertilité.\n"
-                              f"🟦 Zone Bleue 🔵 : Période de menstruation. C'est la phase où tu as tes règles, avec un très faible risque de grossesse.")
+    chat.send_text(sender_id, 
+               "Pour mieux comprendre ton cycle menstruel, voici une explication des différentes zones et leurs significations :\n\n"
+               f"🟩 Zone Verte 🟢 : Période peu fertile. C'est une phase où il y a moins de chances de concevoir."
+               f"\n🟧 Zone Orange 🟠 : Période ovulatoire. Cette phase correspond à la fenêtre de fertilité possible où l'ovulation approche."
+               f"\n🟥 Zone Rouge 🔴 : Période fertile élevée. Cette phase est marquée par une haute probabilité de fertilité."
+               f"\n🟦 Zone Bleue 🔵 : Période de menstruation. C'est la phase où tu as tes règles, avec un très faible risque de grossesse."
+                )
     calcul(sender_id, debut_date, cycle_dure)
     # Ajouter des boutons pour demander si l'utilisateur veut mettre à jour
     buttons = [
@@ -235,7 +238,7 @@ def update_cycle(sender_id, cmd, **ext):
             payload=Payload('/no_update')
         )
     ]
-    chat.send_button(sender_id, buttons, "Est-ce que les dernières règles sont bien arrivé ? Cela permettra de mettre à jour les informations. ?")
+    chat.send_button(sender_id, buttons, "Est-ce que les dernières règles sont bien arrivé ? Cela permettra de mettre à jour les informations.")
 
 @ampalibe.command('/start_update')
 def start_update(sender_id, cmd, **ext):
@@ -463,15 +466,14 @@ async def envoie_notifications():
                         chat.send_text(messenger_id, "Les informations sur l'ovulation et les règles ne sont pas disponibles.")
 
 
-                    # Demander s'il veut recevoir une notification demain
-                    # buttons = [
-                    #     Button(
-                    #         type=Type.postback,
-                    #         title='Recevoir',
-                    #         payload=Payload('/recevoir_notification_demain')
-                    #     )
-                    # ]
-                    # chat.send_button(buttons, "Souhaites-tu recevoir une notification demain ?")
+                    # Demander à l'utilisateur s'il veut recevoir une notification demain
+                        chat.ask_quick_reply(
+                            messenger_id,
+                            "Souhaites-tu recevoir un rappel de ton cycle demain ?",
+                            quick_replies=[
+                                {"title": "Recevoir", "payload": "/recevoir_demain"}
+                            ]
+                        )
                     
                     print(f"Notification envoyée avec succès à {messenger_id} (zone: {zone_type}).")
 
@@ -484,19 +486,15 @@ async def envoie_notifications():
         print(f"Erreur lors de l'envoi des notifications : {str(e)}")
 
 
-@ampalibe.action('/recevoir_notification_demain')
+@ampalibe.action("/recevoir_demain")
 def recevoir_notification_demain(sender_id, cmd, **ext):
     try:
-        # Récupérer le cycle_id du payload
-        cycle_id = cmd.split(":")[1]
-
-        # Configurer une nouvelle notification pour demain
-        tomorrow = datetime.now() + timedelta(days=1)
-        timestamp = tomorrow.timestamp()
-        redis_client.zadd("notifications", {f"{cycle_id}:zone_type_placeholder": timestamp})
-
-        # Envoyer un message de confirmation
-        chat.send_text(sender_id, "✅ Tu recevras une notification demain. 😊")
-        print(f"Notification programmée pour demain pour {sender_id} (cycle_id: {cycle_id}).")
+        # Confirmer à l'utilisateur
+        chat.send_text(sender_id, "Merci ! Nous t'enverrons une notification demain.")
+        
+        # Marquer l'utilisateur pour recevoir une notification le lendemain
+        query.marquer_notification_demain(sender_id)  # Implémentez cette fonction pour enregistrer la demande.
     except Exception as e:
-        print(f"Erreur lors de la programmation de la notification pour demain : {str(e)}")
+        print(f"Erreur lors de l'enregistrement de la demande de notification : {str(e)}")
+
+
